@@ -11,6 +11,7 @@ var events = require('events');
 class _events extends events{};
 var e = new _events();
 var config = require('../config');
+var _data = require('./data');
 
 // Instantiate CLI module obejct
 var pizzacli = {};
@@ -33,7 +34,7 @@ e.on('menu', function(str) {
 });
 
 e.on('list orders', function(str) {
-  pizzacli.responders.listOrders();
+  pizzacli.responders.listOrders(str);
 });
 
 e.on('lookup order', function(str) {
@@ -142,23 +143,111 @@ pizzacli.responders.menu = function() {
 };
 
 // List all the orders in the last "n" hours specified in the passed string, default to 24h
-pizzacli.responders.listOrders = function() {
-  console.log("You asked for orders");
+pizzacli.responders.listOrders = function(str) {
+
+  // Get the number of hours since the order was placed. If none is specified, default to 24
+  var argumentArray = str.split('--');
+  var hours = typeof(argumentArray[1]) == 'string' && argumentArray[1].trim().length > 0 ? parseInt(argumentArray[1].trim()) : 24;
+
+  _data.list('orders', function(err, orderIds) {
+    if (!err && orderIds && orderIds.length > 0) {
+      pizzacli.addVerticalSpace();
+      orderIds.forEach(function(orderId) {
+        _data.read('orders', orderId, function(err, orderData) {
+          if (!err && orderData) {
+            var lookupDateInMillis = Date.now() - hours * 60 * 60 * 1000;
+
+            // Just print the order if the order date is lower than the specified hours in milliseconds
+            if (lookupDateInMillis <= orderData.orderDate) {
+              var line = 'ID: ' + orderId + ' - Username: ' + orderData.username + ' Ingredients: ' + orderData.ingredients + ' Date: ' + new Date(orderData.orderDate).toISOString().replace('T', ' ').replace('Z', ' ');
+              console.log(line);
+              pizzacli.addVerticalSpace();
+            }
+          }
+        });
+      });
+    }
+  });
 };
 
 // Look up a specific order by order ID
-pizzacli.responders.lookUpOrder = function() {
-  console.log("You asked to lookup order");
+pizzacli.responders.lookUpOrder = function(str) {
+  // Get the order ID from the string provided to us
+  var argumentArray = str.split('--');
+  var order = typeof(argumentArray[1]) == 'string' && argumentArray[1].trim().length > 0 ? argumentArray[1].trim() : false;
+
+  if (order) {
+    // Look the order, and print it if the mail address matches the provided one
+    _data.list('orders', function(err, orderIds) {
+      if (!err && orderIds && orderIds.length > 0) {
+        pizzacli.addVerticalSpace();
+        orderIds.forEach(function(orderId) {
+          _data.read('orders', orderId, function(err, orderData) {
+            if (!err && orderData && orderId == order) {
+              var line = 'ID: ' + orderId + ' - Username: ' + orderData.username + ' Ingredients: ' + orderData.ingredients + ' Date: ' + new Date(orderData.orderDate).toISOString().replace('T', ' ').replace('Z', ' ');
+              console.log(line);
+              pizzacli.addVerticalSpace();
+            }
+          });
+        });
+      }
+    });
+  }
 };
 
 // List all the users in the last "n" hours specified in the passed string, default to 24h
 pizzacli.responders.listUsers = function(str) {
-  console.log("You asked for users", str);
+
+  // Get the number of hours since the user is registered. If none is specified, default to 24
+  var argumentArray = str.split('--');
+  var hours = typeof(argumentArray[1]) == 'string' && argumentArray[1].trim().length > 0 ? parseInt(argumentArray[1].trim()) : 24;
+
+  _data.list('users', function(err, userIds) {
+    if (!err && userIds && userIds.length > 0) {
+      pizzacli.addVerticalSpace();
+      userIds.forEach(function(userId) {
+        _data.read('users', userId, function(err, userData) {
+          if (!err && userData) {
+            delete userData.hashedPassword;
+            var lookupDateInMillis = Date.now() - hours * 60 * 60 * 1000;
+
+            // Just print the user if the sign up data is lower than the specified hours in milliseconds
+            if (lookupDateInMillis <= userData.signupDate) {
+              var line = 'Username: ' + userData.username + ' Name: ' + userData.name + ' Address: ' + userData.address + ' Mail: ' + userData.mail + ' Registered on: ' + new Date(userData.signupDate).toISOString().replace('T', ' ').replace('Z', ' ');
+              console.log(line);
+              pizzacli.addVerticalSpace();
+            }
+          }
+        });
+      });
+    }
+  });
 };
 
 // Look up a specific user by mail address
 pizzacli.responders.lookUpUser = function(str) {
-  console.log("You asked to lookup user", str);
+  // Get the mail address from the string provided to us, checking it is valid mail address
+  var argumentArray = str.split('--');
+  var mail = typeof(argumentArray[1]) == 'string' && argumentArray[1].trim().length > 0 && argumentArray[1].trim().indexOf('@') > -1 && argumentArray[1].trim().indexOf('.') > -1 ? argumentArray[1].trim() : false;
+
+  if (mail) {
+    // Look the user up, and print it if the mail address matches the provided one
+    _data.list('users', function(err, userIds) {
+      if (!err && userIds && userIds.length > 0) {
+        pizzacli.addVerticalSpace();
+        userIds.forEach(function(userId) {
+          _data.read('users', userId, function(err, userData) {
+            if (!err && userData && userData.mail == mail) {
+              delete userData.hashedPassword;
+              var line = 'Username: ' + userData.username + ' Name: ' + userData.name + ' Address: ' + userData.address + ' Mail: ' + userData.mail + ' Registered on: ' + new Date(userData.signupDate).toISOString().replace('T', ' ').replace('Z', ' ');
+              console.log(line);
+              pizzacli.addVerticalSpace();
+            }
+          });
+        });
+      }
+    });
+  }
 };
 
 

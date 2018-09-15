@@ -415,7 +415,8 @@ handlers._users.post = function(data, callback) {
             'name': name,
             'mail': mail,
             'address': address,
-            'hashedPassword': hashedpassword
+            'hashedPassword': hashedpassword,
+            'signupDate': Date.now()
           };
 
           // Store the user
@@ -1156,6 +1157,24 @@ handlers._checkout.post = function(data, callback) {
               });
               mailMessage += '--------------------------\n\nTOTAL: ' + orderAmount + '€\n\nThanks for your order. You\'ll receive it within the next 30 minutes or we will refund you.';
 
+              // Build the order object
+              var orderobject = {
+                'username': username,
+                'ingredients': cartobject,
+                'orderDate': Date.now()
+              };
+
+              var orderId = helpers.createRandomString(20);
+
+              // Store the user
+              _data.write('orders', orderId, orderobject, function(err) {
+                if (!err) {
+                  callback(200);
+                } else {
+                  callback(500, {'Error': 'Could not store the order'});
+                }
+              });
+
               // Proceed with the payment, multiplying the order amount hundred times
               helpers.paymentWithStripe(orderAmount * 100, function(err) {
                 if (!err) {
@@ -1169,6 +1188,13 @@ handlers._checkout.post = function(data, callback) {
                         if (!err && userData) {
                           // Empty the cart
                           userData.cart = [];
+
+                          // Store the order id inside the user's array object
+                          var ordersobject = typeof(userData.orders) == 'object' && userData.orders instanceof Array && userData.orders.length > 0 ? userData.orders : [];
+                          ordersobject.push(orderId);
+
+                          // Add the object to the userData
+                          userData.orders = ordersobject;
 
                           // Store the new updates
                           _data.update('users', username, userData, function(err) {
